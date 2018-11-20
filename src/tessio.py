@@ -29,7 +29,7 @@ from os.path import basename, splitext
 from datetime import datetime
 from collections import namedtuple
 
-from .k2data import K2Data
+from .tessdata import TESSData
 
 warnings.resetwarnings()
 warnings.filterwarnings('ignore', category=UserWarning, append=True)
@@ -58,41 +58,41 @@ class DataReader(object):
         return splitext(basename(fname))[1].lower() in cls.extensions
         
         
-class AMCReader(DataReader):
-    extensions = ['.bin', '.dat']
-    ndatasets = None  
-    fn_out_template = 'EPIC_{:9d}_amc.fits'
+# class AMCReader(DataReader):
+#     extensions = ['.bin', '.dat']
+#     ndatasets = None  
+#     fn_out_template = 'EPIC_{:9d}_amc.fits'
 
-    @classmethod
-    def read(cls, fname, **kwargs):
-        epic = int(re.findall('EPIC_([0-9]+)_', basename(fname))[0])
-        data = np.loadtxt(fname, skiprows=1)
+#     @classmethod
+#     def read(cls, fname, **kwargs):
+#         epic = int(re.findall('EPIC_([0-9]+)_', basename(fname))[0])
+#         data = np.loadtxt(fname, skiprows=1)
 
-        return K2Data(epic,
-                      time     = data[:,0],
-                      cadence  = data[:,1],
-                      quality  = data[:,-1],
-                      fluxes   = data[:,2:-3:2].T,
-                      errors   = data[:,3:-3:2].T,
-                      x        = data[:,-3],
-                      y        = data[:,-2],
-                      campaign = kwargs.get('campaign', None))
+#         return K2Data(epic,
+#                       time     = data[:,0],
+#                       cadence  = data[:,1],
+#                       quality  = data[:,-1],
+#                       fluxes   = data[:,2:-3:2].T,
+#                       errors   = data[:,3:-3:2].T,
+#                       x        = data[:,-3],
+#                       y        = data[:,-2],
+#                       campaign = kwargs.get('campaign', None))
 
-    @classmethod
-    def can_read(cls, fname):
-        ext_ok = cls.is_extension_valid(fname)
-        with open(fname, 'rt') as f:
-            header = f.readline().lower().split()
-            head_ok = all([cn in header for cn in 'dates cadences xpos ypos quality'.split()])
-        return ext_ok and head_ok
+#     @classmethod
+#     def can_read(cls, fname):
+#         ext_ok = cls.is_extension_valid(fname)
+#         with open(fname, 'rt') as f:
+#             header = f.readline().lower().split()
+#             head_ok = all([cn in header for cn in 'dates cadences xpos ypos quality'.split()])
+#         return ext_ok and head_ok
     
     
 class MASTReader(DataReader):
     extensions = ['.fits', '.fit']
     ndatasets = 1
-    fn_out_template = 'EPIC_{:9d}_mast.fits'
     allowed_types = ['sap', 'pdc']
     fkeys = dict(sap = 'sap_flux', pdc = 'pdcsap_flux')
+    fn_out_template = 'TIC_{:015d}_{:3s}_k2sc.fits'
 
     @classmethod
     def read(cls, fname, sid, **kwargs):
@@ -100,37 +100,35 @@ class MASTReader(DataReader):
         assert ftype in cls.allowed_types, 'Flux type must be either `sap` or `pdc`'
         fkey = cls.fkeys[ftype]
 
-        try:
-            epic = int(re.findall('ktwo([0-9]+)-c', basename(fname))[0])
-        except:
-            epic = int(re.findall('C([0-9]+)_smear', basename(fname))[0][2:]) # for smear
         data  = pf.getdata(fname, 1)
         phead = pf.getheader(fname, 0)
         dhead = pf.getheader(fname, 1)
 
+        tic = int(phead['TICID'])
+
         try:
             [h.remove('CHECKSUM') for h in (phead,dhead)]
             [phead.remove(k) for k in 'CREATOR PROCVER FILEVER TIMVERSN'.split()]
-
         except:
             pass # this can be an issue on some custom file formats
 
         try:
-            campaign = phead['campaign']
+            sector = phead['sector']
         except:
-            campaign = kwargs.get('campaign', None)
+            sector = kwargs.get('sector', None)
 
-        return K2Data(epic,
-                      time    = data['time'],
-                      cadence = data['cadenceno'],
-                      quality = data['sap_quality'],
-                      fluxes  = data[fkey],
-                      errors  = data[fkey+'_err'],
-                      x       = data['pos_corr1'],
-                      y       = data['pos_corr2'],
+        return TESSData(tic,
+                      time    = data['time'][::5],
+                      cadence = data['cadenceno'][::5],
+                      quality = data['quality'][::5],
+                      fluxes  = data[fkey][::5],
+                      errors  = data[fkey+'_err'][::5],
+                      x       = data['pos_corr1'][::5],
+                      y       = data['pos_corr2'][::5],
                       primary_header = phead,
                       data_header = dhead,
-                      campaign=campaign)
+                      sector = sector,
+                      ftype = ftype)
     
     @classmethod
     def can_read(cls, fname):
@@ -143,55 +141,55 @@ class MASTReader(DataReader):
             return fmt_ok
         
 
-class SPLOXReader(DataReader):
-    extensions = ['.fits', '.fit']
-    ndatasets = 6
-    fn_out_template = 'STAR_{:09d}.fits'
-    _cache = None
-    _nstars = None
+# class SPLOXReader(DataReader):
+#     extensions = ['.fits', '.fit']
+#     ndatasets = 6
+#     fn_out_template = 'STAR_{:09d}.fits'
+#     _cache = None
+#     _nstars = None
     
-    @classmethod
-    def read(cls, fname, sid, **kwargs):
-        cache = namedtuple('K2Cache', 'fname objno nobj nexp time cadence quality fluxes errors x y header')
-        if not cls._cache or cls._cache.fname != fname:
-            with pf.open(fname) as fin:
-                data = fin[1].data
-                nobj = fin[1].header['naxis2']
-                nexp = fin[2].header['naxis2']
-                fluxes = (1. + data['f'].reshape([nobj,nexp,-1])) * data['f_med'][:,np.newaxis,:]
-                fluxes = np.swapaxes(fluxes, 1, 2) # Fluxes as [nobj,napt,nexp] ndarray
-                cls._nstars = nobj         
-                cls._cache = cache(fname, fin[1].data['objno'], nobj, nexp, fin[2].data['mjd_obs'],
-                                   fin[2].data['cadence'], np.zeros(nexp, np.int), fluxes,
-                                   np.zeros_like(fluxes), data['x'], data['y'], fin[0].header)
+#     @classmethod
+#     def read(cls, fname, sid, **kwargs):
+#         cache = namedtuple('K2Cache', 'fname objno nobj nexp time cadence quality fluxes errors x y header')
+#         if not cls._cache or cls._cache.fname != fname:
+#             with pf.open(fname) as fin:
+#                 data = fin[1].data
+#                 nobj = fin[1].header['naxis2']
+#                 nexp = fin[2].header['naxis2']
+#                 fluxes = (1. + data['f'].reshape([nobj,nexp,-1])) * data['f_med'][:,np.newaxis,:]
+#                 fluxes = np.swapaxes(fluxes, 1, 2) # Fluxes as [nobj,napt,nexp] ndarray
+#                 cls._nstars = nobj         
+#                 cls._cache = cache(fname, fin[1].data['objno'], nobj, nexp, fin[2].data['mjd_obs'],
+#                                    fin[2].data['cadence'], np.zeros(nexp, np.int), fluxes,
+#                                    np.zeros_like(fluxes), data['x'], data['y'], fin[0].header)
 
-        return K2Data(cls._cache.objno[sid],
-                      time=cls._cache.time[:-1],
-                      cadence=cls._cache.cadence[:-1],
-                      quality=cls._cache.quality[:-1],
-                      fluxes=cls._cache.fluxes[sid,:,:-1],
-                      errors=cls._cache.errors[sid,:,:-1],
-                      x=cls._cache.x[sid,:-1],
-                      y=cls._cache.y[sid,:-1],
-                      primary_header=cls._cache.header,
-                      data_header=cls._cache.header,
-                      campaign = kwargs.get('campaign', None))    
-
-    
-    @classmethod
-    def nstars(cls, fname):
-        return pf.getval(fname, 'naxis2', 1)
+#         return K2Data(cls._cache.objno[sid],
+#                       time=cls._cache.time[:-1],
+#                       cadence=cls._cache.cadence[:-1],
+#                       quality=cls._cache.quality[:-1],
+#                       fluxes=cls._cache.fluxes[sid,:,:-1],
+#                       errors=cls._cache.errors[sid,:,:-1],
+#                       x=cls._cache.x[sid,:-1],
+#                       y=cls._cache.y[sid,:-1],
+#                       primary_header=cls._cache.header,
+#                       data_header=cls._cache.header,
+#                       campaign = kwargs.get('campaign', None))    
 
     
-    @classmethod
-    def can_read(cls, fname):
-        ext_ok = cls.is_extension_valid(fname)
-        if not ext_ok:
-            return False
-        else:
-            h = pf.getheader(fname, 1)
-            fmt_ok = 'F_SCATTER' in h.values()
-            return fmt_ok
+#     @classmethod
+#     def nstars(cls, fname):
+#         return pf.getval(fname, 'naxis2', 1)
+
+    
+#     @classmethod
+#     def can_read(cls, fname):
+#         ext_ok = cls.is_extension_valid(fname)
+#         if not ext_ok:
+#             return False
+#         else:
+#             h = pf.getheader(fname, 1)
+#             fmt_ok = 'F_SCATTER' in h.values()
+#             return fmt_ok
 
 
 
@@ -223,9 +221,9 @@ class FITSWriter(object):
                          C(name='trposi%s' %sid, format='D', array=unpack(dtres[i].tr_position))])
 
         hdu = pf.BinTableHDU.from_columns(pf.ColDefs(cols), header=data.data_header)
-        hdu.header['extname'] = 'K2SC'
-        hdu.header['object'] = data.epic
-        hdu.header['epic']   = data.epic
+        hdu.header['extname'] = 'TESSK2SC'
+        hdu.header['object'] = data.tic
+        hdu.header['ticid']   = data.tic
         hdu.header['splits'] = str(splits)
         for i in range(data.nsets):
             sid = '' if data.nsets==1 else i+1
@@ -249,7 +247,7 @@ class FITSWriter(object):
         hdu_list.writeto(fname, overwrite=True)
 
 
-readers = [AMCReader,MASTReader,SPLOXReader]
+readers = [MASTReader]
 
 def select_reader(fname):
     for R in readers:

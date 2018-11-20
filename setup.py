@@ -1,15 +1,16 @@
 from setuptools import setup
 
-setup(name='K2SC',
+setup(name='K2SCTess',
       version='1.0',
-      description='K2 light curve detrending with Gaussian Processes.',
-      long_description='K2 light curve detrending with Gaussian Processes.',
+      description='TESS light curve detrending with Gaussian Processes.',
+      long_description='TESS light curve detrending with Gaussian Processes.',
       author='Suzanne Aigrain',
       author_email='suzanne.aigrain@physics.ox.ac.uk',
-      url='https://github.com/OxES/k2sc',
-      package_dir={'k2sc':'src'},
-      scripts=['bin/k2sc','bin/k2plot','bin/k2ginfo', 'bin/k2mastify'],
-      packages=['k2sc'],
+      url='https://github.com/saigrain/k2scTess',
+      package_dir={'k2scTess':'src'},
+      scripts=['bin/k2sc_tess', 'bin/k2sc_tess_plot'],
+            # ,'bin/k2ginfo', 'bin/k2mastify'],
+      packages=['k2scTess'],
       install_requires=["numpy", "astropy", "scipy", "george>=0.3"],
       license='GPLv3',
       classifiers=[

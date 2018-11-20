@@ -1,5 +1,5 @@
-"""Contains the K2Data class for working with K2 datasets with 1..n flux and error
-arrays (using different aperture size, etc.)
+"""Contains the TESSData class for working with TESS datasets with
+1..n flux and error arrays (using different aperture size, etc.)
 
 """
 from __future__ import division
@@ -13,10 +13,10 @@ from .ls import fasper
 from .utils import medsig, fold
 from .core import *
 
-class K2Data(object):
-    """Encapsulates the K2 data.
+class TESSData(object):
+    """Encapsulates the TESS data.
 
-    Encapsulates the K2 data with 1..n flux and flux uncertainty arrays. Separate
+    Encapsulates the TESS data with 1..n flux and flux uncertainty arrays. Separate
     flux and uncertainty arrays can correspond to different aperture sizes, etc.
 
     Notes
@@ -26,8 +26,8 @@ class K2Data(object):
 
     Parameters
     ----------
-    epic    : int
-              EPIC number of the star
+    TIC     : int
+              TIC number of the star
     time    : array_like
               ndarray or list containing the time values
     cadence : array_like
@@ -42,6 +42,8 @@ class K2Data(object):
               ndarray or list of x values
     y       : array_like
               ndarray or list of y values
+    ftype   : string
+             'sap' or 'pdc'
 
     Attributes
     ----------
@@ -57,9 +59,9 @@ class K2Data(object):
                   Lomb-Scargle power of the strongest periodic variability detected
     """
     
-    def __init__(self, epic, time, cadence, quality, fluxes, errors, x, y, primary_header=None, data_header=None, campaign=None):
-        self.epic = epic
-        self.campaign = campaign
+    def __init__(self, tic, time, cadence, quality, fluxes, errors, x, y, primary_header=None, data_header=None, sector=None, ftype='pdc'):
+        self.tic = tic
+        self.sector = sector
         self.nanmask = nm = isfinite(time) & isfinite(x) & isfinite(y)
         self.time = extract(nm, time)
         self.cadence =  extract(nm, cadence)
@@ -68,6 +70,7 @@ class K2Data(object):
         self.errors = atleast_2d(errors)[:,nm]
         self.x = extract(nm,x)
         self.y = extract(nm,y)
+        self.ftype = ftype
         self.primary_header = primary_header
         self.data_header = data_header
 
@@ -81,7 +84,6 @@ class K2Data(object):
         qmask = all(isfinite(self.fluxes),0) & (self.quality==0)
         self.mflags   = zeros([self.nsets, self.npoints], np.uint8)
         self.mflags[:,~qmask] |= M_QUALITY
-
 
     def mask_periodic_signal(self, center, period, duration):
         self.pmask = np.abs(fold(self.time, period, center, shift=0.5) - 0.5)*period > 0.5*duration
