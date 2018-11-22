@@ -74,6 +74,7 @@ def plot_lc(data):
     ax3.legend(loc = 0)
     ax4.plot(time[mask], fcorr[mask], lw = 0.5, label = 'residuals')
     pl.setp(ax4, ylabel='e-/s')
+    pl.setp(ax4, ylabel='time (d)')
     ax4.legend(loc = 0)
     # ax5.plot(time[mask], fcorr_ppm[mask], lw = 0.5, label = 'residuals')
     # pl.setp(ax5, ylabel='ppm')
@@ -83,7 +84,7 @@ def plot_lc(data):
     return ax0
 
 def create_page():
-    fig = pl.figure(figsize=(8.3,8.3))
+    fig = pl.figure(figsize=(8.3,7.0))
     return fig
     
 

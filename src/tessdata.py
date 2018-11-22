@@ -59,10 +59,13 @@ class TESSData(object):
                   Lomb-Scargle power of the strongest periodic variability detected
     """
     
-    def __init__(self, tic, time, cadence, quality, fluxes, errors, x, y, primary_header=None, data_header=None, sector=None, ftype='pdc'):
+    def __init__(self, tic, time, cadence, quality, fluxes, errors, x, y, primary_header=None, data_header=None, sector=None, ftype='pdc', subsample = 1):
         self.tic = tic
         self.sector = sector
-        self.nanmask = nm = isfinite(time) & isfinite(x) & isfinite(y)
+        print('subsampling by:',subsample)
+        l = np.zeros(len(time), 'bool')
+        l[::subsample] = True
+        self.nanmask = nm = isfinite(time) & isfinite(x) & isfinite(y) & l
         self.time = extract(nm, time)
         self.cadence =  extract(nm, cadence)
         self.quality =  extract(nm, quality).astype(np.int32)

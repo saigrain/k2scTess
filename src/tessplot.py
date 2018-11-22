@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+#!/usr/bin/env python
 import math as mt
 import numpy as np
 import astropy.io.fits as pf
@@ -6,16 +7,9 @@ import pandas as pd
 import seaborn as sb
 import matplotlib.pyplot as pl
 
-from os.path import join, abspath, basename
-from numpy import arange, zeros, nanmax, nanmin, nanmedian
+from os.path import join, basename, split, splitext
 from numpy.random import uniform
-from time import sleep
 from IPython.display import display
-from glob import glob
-from copy import copy
-
-from glob import glob
-from os.path import join, basename, splitext
 from matplotlib.backends.backend_pdf import PdfPages
 
 sb.set_style('white')
@@ -26,7 +20,7 @@ c_ob = '#002147'
 c_bo = '#BF5700'
 
 def normalise(a):
-    return a/nanmedian(a)
+    return a/np.nanmedian(a)
 
 def plot_lc(data):
     time = data['time']
@@ -84,14 +78,10 @@ def create_page():
     fig = pl.figure(figsize=(8.3,8.3))
     return fig
 
-def make_plot(k2sc_file, savedir = None):
-    fname = k2sc_file
-    root, name = fname.split
-    tic = int(name.split('_')[1])
-    if savedir is None:
-        savedir = root
-    out_name = join(savedir,'{:s}.pdf'.format(splitext(basename(fname))[0]))
-
+def make_plot(fname):
+    outfile = fname.replace('fits','pdf')
+    root, name = split(fname)
+    tic = int(name.split('-')[1])
     data = pf.getdata(fname, 1)
     hd = pf.getheader(fname, 1)
     

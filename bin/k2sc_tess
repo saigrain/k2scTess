@@ -39,20 +39,17 @@ from k2scTess.cdpp import cdpp
 from k2scTess.de import DiffEvol
 from k2scTess.ls import fasper
 from k2scTess.utils import medsig, sigma_clip
+from k2scTess.tessplot import make_plot
 
 warnings.resetwarnings()
 warnings.filterwarnings('ignore', category=UserWarning, append=True)
 warnings.filterwarnings('ignore', category=DeprecationWarning, append=True)
 
-##TODO: Copy the FITS E0 header if a fits file is available
-##TODO: Define the covariance matrix splits for every sector
-
 mpi_root = 0
 logging.basicConfig(level=logging.DEBUG, format='%(levelname)s %(name)s: %(message)s')
 
-# default_splits = {3:[2154,2190], 4:[2240,2273], 5:[2344], 6:[2390,2428], 7:[2468.5,2515],
-#                   8: [2579,2598], 10: [2772,2800], 12: [2916,2949], 13: [2997,3032], 14: [3086.4,3123.65]}
-default_splits = {}
+default_splits = {14:[1626.8,1640.8]}
+# ETE-6 = sector 14
 
 if hasattr(numpy, 'nanmedian'):
     from numpy import nanmedian
@@ -115,7 +112,6 @@ def detrend(dataset):
     else:
         splits = default_splits[ds.sector]
         info('Using default splits {:s} for sector {:d}'.format(str(splits), ds.sector))
-
     ## Periodic signal masking
     ## -----------------------
     if args.p_mask_center and args.p_mask_period and args.p_mask_duration:
@@ -134,7 +130,6 @@ def detrend(dataset):
         mask &= ~(ds.quality & 2**20).astype(np.bool)            # Mask out the thruster firings
         inputs = np.transpose([ds.time, ds.x, ds.y])
         masks.append(mask)
-
         detrender = Detrender(flux, inputs, mask = mask, splits = splits,
                               kernel = BasicKernelEP(),
                               tr_nrandom = args.tr_nrandom,
@@ -288,7 +283,11 @@ def detrend(dataset):
         info('  CDPP - full reduction - %6.3f', cdpp_c)
         info('Detrending time %6.3f', time()-tstart)
 
+    info('Saving processed light curve to %s', fpath_out)
     FITSWriter.write(fpath_out, splits, ds, results)
+    if args.plot:
+        info('Saving plot to %s', fpath_out.replace('fits','pdf'))
+        make_plot(fpath_out)
     info('Finished')
     fh.flush()
     logger.removeHandler(fh)
@@ -319,6 +318,7 @@ if __name__ == '__main__':
     ap.add_argument('--p-mask-center', type=float, default=None, help='Period mask zero epoch')
     ap.add_argument('--p-mask-period', type=float, default=None, help='Period mask period')
     ap.add_argument('--p-mask-duration', type=float, default=None, help='Period mask event duration')
+    ap.add_argument('-subsample', default = 15, type=int, help='Subsampling factor')
     gts.add_argument('--tr-nrandom', default=400, type=int, help='Number of random samples')
     gts.add_argument('--tr-nblocks', default=6, type=int, help='Number of sample blocks')
     gts.add_argument('--tr-bspan', default=50, type=int, help='Span of a single block')
@@ -331,6 +331,7 @@ if __name__ == '__main__':
     god.add_argument('--outlier-sigma', default=5, type=float)
     god.add_argument('--outlier-mwidth', default=25, type=int)
     args = ap.parse_args()
+    print(args.subsample)
 
     ## Logging
     ##
@@ -342,7 +343,7 @@ if __name__ == '__main__':
             fh.setFormatter(logging.Formatter('%(levelname)s %(name)s: %(message)s'))
             fh.setLevel(logging.DEBUG)
             logger.addHandler(fh)
-
+    
     if not exists(args.save_dir):
         logger.error("Error: the save directory {:s} doesn't exist".format(args.save_dir), file=sys.stderr)
         exit(errno.ENOENT)
@@ -416,9 +417,9 @@ if __name__ == '__main__':
                 if not exists(infile):
                     logger.warning("The input file {:s} doesn't exists, skipping the file".format(infile))
                     continue
-            dataset = reader.read(infile, sid=sid, type=args.flux_type)
+            dataset = reader.read(infile, sid=sid, type=args.flux_type,
+                                      subsample = args.subsample)
             detrend(dataset)
-                                
 
     ## With MPI
     ## ========
@@ -447,7 +448,7 @@ if __name__ == '__main__':
                             logger.warning("The input file {:s} doesn't exists, skipping the file".format(infile))
                             continue
                         
-                    dataset = reader.read(infile, sid=sid, type=args.flux_type, sector=args.sector)
+                    dataset = reader.read(infile, sid=sid, type=args.flux_type, sector=args.sector, subsample = args.subsample)
                     comm.send(dataset, dest=w, tag=0)
                     active_workers.append(w)
 

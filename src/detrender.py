@@ -19,9 +19,10 @@ from .kernels import BasicKernel
 from .utils import medsig
 from .dtdata import DtData
 
+
 class Detrender(object):
-    def __init__(self, flux, inputs, mask=None, p0=None, kernel=None, splits=[], tr_nrandom=200, tr_bspan=50, tr_nblocks=6):
-        self.data   = DtData(flux, inputs, mask)
+    def __init__(self, flux, inputs, mask=None, p0=None, kernel=None, splits=[], tr_nrandom=200, tr_bspan=50, tr_nblocks=6, subsample = 1):
+        self.data   = DtData(flux, inputs, mask, subsample = subsample)
         self.kernel = kernel or BasicKernel()
         self.gp     = SplitGP(self.kernel, splits) if splits is not None else GeorgeGP(self.kernel)
         self.tr_data  = self.data.create_training_set(tr_nrandom, tr_bspan, tr_nblocks)
