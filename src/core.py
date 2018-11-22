@@ -5,3 +5,4 @@ M_OUTLIER_U  = 2**3
 M_OUTLIER_D  = 2**4
 M_NOTFINITE  = 2**5
 M_PERIODIC   = 2**6
+M_NOTUSED    = 2**7

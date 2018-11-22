@@ -41,6 +41,7 @@ class Detrender(object):
         return self.data.masked_time
 
 
+    
     ## =====================
     ##  Detrending routines
     ## =====================

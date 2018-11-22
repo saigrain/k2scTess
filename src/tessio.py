@@ -116,17 +116,14 @@ class MASTReader(DataReader):
         except:
             sector = kwargs.get('sector', None)
 
-        print('Reading in {} of {} data points'.format(len(data['time']),
-                  len(data['time'][::15])))
-
         return TESSData(tic,
-                      time    = data['time'][::5],
-                      cadence = data['cadenceno'][::5],
-                      quality = data['quality'][::5],
-                      fluxes  = data[fkey][::5],
-                      errors  = data[fkey+'_err'][::5],
-                      x       = data['pos_corr1'][::5],
-                      y       = data['pos_corr2'][::5],
+                      time    = data['time'][::1],
+                      cadence = data['cadenceno'][::1],
+                      quality = data['quality'][::1],
+                      fluxes  = data[fkey][::1],
+                      errors  = data[fkey+'_err'][::1],
+                      x       = data['pos_corr1'][::1],
+                      y       = data['pos_corr2'][::1],
                       primary_header = phead,
                       data_header = dhead,
                       sector = sector,

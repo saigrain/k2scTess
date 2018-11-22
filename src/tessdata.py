@@ -89,5 +89,10 @@ class TESSData(object):
         self.pmask = np.abs(fold(self.time, period, center, shift=0.5) - 0.5)*period > 0.5*duration
         self.mflags[:,~self.pmask] |= M_PERIODIC
 
+    def use_subset(self, skip):
+        self.smask = np.zeros(len(self.time), 'bool')
+        self.smask[::skip] = True
+        self.mflags[:,~self.smask] |= M_NOTUSED
+
     #def __str__(self):
     #    return str(id(self))

@@ -116,7 +116,12 @@ def detrend(dataset):
     ## -----------------------
     if args.p_mask_center and args.p_mask_period and args.p_mask_duration:
         ds.mask_periodic_signal(args.p_mask_center, args.p_mask_period, args.p_mask_duration)
-
+        
+    ## Use only subset
+    ## ---------------
+    if args.subsample:
+        ds.use_subset(args.subsample)
+        
     ## Initial outlier and period detection
     ## ------------------------------------
     ## We carry out an initial outlier and period detection using
@@ -128,6 +133,7 @@ def detrend(dataset):
         flux = ds.fluxes[iset]
         mask  = isfinite(flux) 
         mask &= ~(ds.mflags[iset] & M_PERIODIC).astype(np.bool)  # Apply the transit mask, if any
+        mask &= ~(ds.mflags[iset] & M_NOTUSED).astype(np.bool)  # Apply the subsmapling, if any
         mask &= ~(ds.quality & 2**20).astype(np.bool)            # Mask out the thruster firings
         inputs = np.transpose([ds.time, ds.x, ds.y])
         masks.append(mask)
@@ -320,6 +326,7 @@ if __name__ == '__main__':
     ap.add_argument('--default-position-kernel', choices=['SqrExp','Exp'], default='SqrExp')
     ap.add_argument('--kernel', choices=kernels.keys(), default=None, help='Kernel to use (overrides the automatic kernel selection)')
     ap.add_argument('--kernel-period', type=float, default=None, help='Period for the (quasi)periodic kernels (overrides the period detection)')
+    ap.add_argument('--subsample', type=int, default=None, help='Subsampling factor for conditioning')
     ap.add_argument('--p-mask-center', type=float, default=None, help='Period mask zero epoch')
     ap.add_argument('--p-mask-period', type=float, default=None, help='Period mask period')
     ap.add_argument('--p-mask-duration', type=float, default=None, help='Period mask event duration')
