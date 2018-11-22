@@ -124,12 +124,16 @@ def detrend(dataset):
     ## done using (almost) noninformative priors.
 
     for iset in range(ds.nsets):
+        print('Set {} of {}'.format(iset+1,ds.nsets))
         flux = ds.fluxes[iset]
         mask  = isfinite(flux) 
         mask &= ~(ds.mflags[iset] & M_PERIODIC).astype(np.bool)  # Apply the transit mask, if any
         mask &= ~(ds.quality & 2**20).astype(np.bool)            # Mask out the thruster firings
         inputs = np.transpose([ds.time, ds.x, ds.y])
         masks.append(mask)
+        print(len(flux))
+        print(mask.sum())
+        print('About to initialise detrender')
         detrender = Detrender(flux, inputs, mask = mask, splits = splits,
                               kernel = BasicKernelEP(),
                               tr_nrandom = args.tr_nrandom,
@@ -202,7 +206,7 @@ def detrend(dataset):
                               splits=splits, kernel=kernel, tr_nrandom=args.tr_nrandom,
                               tr_nblocks=args.tr_nblocks, tr_bspan=args.tr_bspan)
         de = DiffEvol(detrender.neglnposterior, kernel.bounds, args.de_npop)
-
+        
         ## Period population generation
         ## ----------------------------
         if isinstance(kernel, QuasiPeriodicKernel):
@@ -210,6 +214,7 @@ def detrend(dataset):
                                           args.ls_min_period, args.ls_max_period)
         ## Hyperparameter optimisation
         ## ---------------------------
+        print('starting HP optimization')
         if np.isfinite(ds.fluxes[iset]).sum() >= 100:
             ## Global hyperparameter optimisation
             ## ----------------------------------
@@ -318,7 +323,6 @@ if __name__ == '__main__':
     ap.add_argument('--p-mask-center', type=float, default=None, help='Period mask zero epoch')
     ap.add_argument('--p-mask-period', type=float, default=None, help='Period mask period')
     ap.add_argument('--p-mask-duration', type=float, default=None, help='Period mask event duration')
-    ap.add_argument('-subsample', default = 15, type=int, help='Subsampling factor')
     gts.add_argument('--tr-nrandom', default=400, type=int, help='Number of random samples')
     gts.add_argument('--tr-nblocks', default=6, type=int, help='Number of sample blocks')
     gts.add_argument('--tr-bspan', default=50, type=int, help='Span of a single block')
@@ -331,7 +335,6 @@ if __name__ == '__main__':
     god.add_argument('--outlier-sigma', default=5, type=float)
     god.add_argument('--outlier-mwidth', default=25, type=int)
     args = ap.parse_args()
-    print(args.subsample)
 
     ## Logging
     ##
@@ -417,8 +420,7 @@ if __name__ == '__main__':
                 if not exists(infile):
                     logger.warning("The input file {:s} doesn't exists, skipping the file".format(infile))
                     continue
-            dataset = reader.read(infile, sid=sid, type=args.flux_type,
-                                      subsample = args.subsample)
+            dataset = reader.read(infile, sid=sid, type=args.flux_type)
             detrend(dataset)
 
     ## With MPI
@@ -448,7 +450,7 @@ if __name__ == '__main__':
                             logger.warning("The input file {:s} doesn't exists, skipping the file".format(infile))
                             continue
                         
-                    dataset = reader.read(infile, sid=sid, type=args.flux_type, sector=args.sector, subsample = args.subsample)
+                    dataset = reader.read(infile, sid=sid, type=args.flux_type, sector=args.sector)
                     comm.send(dataset, dest=w, tag=0)
                     active_workers.append(w)
 

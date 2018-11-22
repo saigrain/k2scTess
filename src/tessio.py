@@ -86,7 +86,6 @@ class DataReader(object):
 #             head_ok = all([cn in header for cn in 'dates cadences xpos ypos quality'.split()])
 #         return ext_ok and head_ok
     
-    
 class MASTReader(DataReader):
     extensions = ['.fits', '.fit']
     ndatasets = 1
@@ -116,6 +115,9 @@ class MASTReader(DataReader):
             sector = phead['sector']
         except:
             sector = kwargs.get('sector', None)
+
+        print('Reading in {} of {} data points'.format(len(data['time']),
+                  len(data['time'][::15])))
 
         return TESSData(tic,
                       time    = data['time'][::5],

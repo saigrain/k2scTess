@@ -81,11 +81,11 @@ def create_page():
 def make_plot(fname):
     outfile = fname.replace('fits','pdf')
     root, name = split(fname)
-    tic = int(name.split('-')[1])
+    tic = int(name.split('_')[1])
     data = pf.getdata(fname, 1)
     hd = pf.getheader(fname, 1)
     
-    with PdfPages(out_name) as pdf:
+    with PdfPages(outfile) as pdf:
         fig1 = create_page()
         ax0 = plot_lc(data)
         ax0.text(0.01,0.80, 'TIC {:d}'.format(tic), size = 13, weight = 'bold')
