@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-#!/usr/bin/env python
 import math as mt
 import numpy as np
 import astropy.io.fits as pf
 import pandas as pd
 import seaborn as sb
+import matplotlib
 import matplotlib.pyplot as pl
 
 from os.path import join, basename, split, splitext
@@ -26,14 +26,20 @@ def normalise(a):
     return a/np.nanmedian(a)
 
 def plot_lc(data, zoom  = False):
-    time = data['time']
     flags = data['mflags']
-    lcond = flags == 0
-    lqual = flags == M_QUALITY
+    print('Light curve contains {:d} points'.format(len(flags)))
+    lqual = flags & M_QUALITY
+    print('{:d} points have bad quality flag'.format(lqual.sum()))
+    lperm = flags & M_PERIODIC
+    print('{:d} points were excluded due to periodic mask'.format(lperm.sum()))
     loutl = (flags == M_OUTLIER_U) | (flags == M_OUTLIER_D)
-    lperm = flags == M_PERIODIC
+    print('{:d} points were marked as outliers'.format(loutl.sum()))
+    lcond = flags & M_TRAINING
+    print('{:d} points were used for training/conditioning'.format(lcond.sum()))
     mask = ~(lcond | lqual | loutl | lperm)
+    print('{:d} points were none of the above'.format(mask.sum()))
 
+    time = data['time']
     fraw = data['flux']
     ctim = data['trtime']
     cpos = data['trposi']
@@ -143,39 +149,32 @@ def plot_lc(data, zoom  = False):
     
     return ax0
 
-def create_page():
-    fig = pl.figure(figsize=(8.3,8.3))
-    return fig
-
 def make_plot(fname):
-    outfile = fname.replace('fits','pdf')
+    outfile = fname.replace('fits','png')
     root, name = split(fname)
     tic = int(name.split('_')[1])
     data = pf.getdata(fname, 1)
     hd = pf.getheader(fname, 1)
-    
-    with PdfPages(outfile) as pdf:
-        fig1 = create_page()
-        ax0 = plot_lc(data)
-        ax0.text(0.01,0.80, 'TIC {:d}'.format(tic), size = 13, weight = 'bold')
-        ax0.text(0.01,0.50, 'CDPP (ppm): raw {:4.0f}, xy-corr {:4.0f}, detrended {:4.0f}'.format(hd['cdppr'], hd['cdppt'],hd['cdppc']), size=11)
-        if hd['ker_name'] == 'QuasiPeriodicKernel':
-            pars = np.fromstring(hd.get('ker_hps1').strip('[]'), sep=' ')
-            ax0.text(0.01,0.20, '{:s} (P={:.1f} days)'.format(hd['ker_name'], pars[2]), size=11)
-        else:
-            ax0.text(0.01,0.20, '{:s}'.format(hd['ker_name']), size=11)
-        pl.setp(ax0, frame_on=False, xticks=[], yticks=[])
-        pdf.savefig(fig1)
-
-    with PdfPages(outfile.replace('.pdf','_zoom.pdf')) as pdf:
-        fig1 = create_page()
-        ax0 = plot_lc(data, zoom = True)
-        ax0.text(0.01,0.80, 'TIC {:d}'.format(tic), size = 13, weight = 'bold')
-        ax0.text(0.01,0.50, 'CDPP (ppm): raw {:4.0f}, xy-corr {:4.0f}, detrended {:4.0f}'.format(hd['cdppr'], hd['cdppt'],hd['cdppc']), size=11)
-        if hd['ker_name'] == 'QuasiPeriodicKernel':
-            pars = np.fromstring(hd.get('ker_hps1').strip('[]'), sep=' ')
-            ax0.text(0.01,0.20, '{:s} (P={:.1f} days)'.format(hd['ker_name'], pars[2]), size=11)
-        else:
-            ax0.text(0.01,0.20, '{:s}'.format(hd['ker_name']), size=11)
-        pl.setp(ax0, frame_on=False, xticks=[], yticks=[])
-        pdf.savefig(fig1)
+    matplotlib.use('Agg')
+    pl.figure(figsize=(8.3,8.3))
+    ax0 = plot_lc(data)
+    ax0.text(0.01,0.80, 'TIC {:d}'.format(tic), size = 13, weight = 'bold')
+    ax0.text(0.01,0.50, 'CDPP (ppm): raw {:4.0f}, xy-corr {:4.0f}, detrended {:4.0f}'.format(hd['cdppr'], hd['cdppt'],hd['cdppc']), size=11)
+    if hd['ker_name'] == 'QuasiPeriodicKernel':
+        pars = np.fromstring(hd.get('ker_hps').strip('[]'), sep=' ')
+        ax0.text(0.01,0.20, '{:s} (P={:.1f} days)'.format(hd['ker_name'], pars[2]), size=11)
+    else:
+        ax0.text(0.01,0.20, '{:s}'.format(hd['ker_name']), size=11)
+    pl.setp(ax0, frame_on=False, xticks=[], yticks=[])
+    pl.savefig(fname.replace('.fits','.png'))
+    pl.clf()
+    ax0 = plot_lc(data, zoom = True)
+    ax0.text(0.01,0.80, 'TIC {:d}'.format(tic), size = 13, weight = 'bold')
+    ax0.text(0.01,0.50, 'CDPP (ppm): raw {:4.0f}, xy-corr {:4.0f}, detrended {:4.0f}'.format(hd['cdppr'], hd['cdppt'],hd['cdppc']), size=11)
+    if hd['ker_name'] == 'QuasiPeriodicKernel':
+        pars = np.fromstring(hd.get('ker_hps').strip('[]'), sep=' ')
+        ax0.text(0.01,0.20, '{:s} (P={:.1f} days)'.format(hd['ker_name'], pars[2]), size=11)
+    else:
+        ax0.text(0.01,0.20, '{:s}'.format(hd['ker_name']), size=11)
+    pl.setp(ax0, frame_on=False, xticks=[], yticks=[])
+    pl.savefig(fname.replace('.fits','_zoom.png'))

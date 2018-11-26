@@ -57,35 +57,6 @@ class DataReader(object):
     def is_extension_valid(cls, fname):
         return splitext(basename(fname))[1].lower() in cls.extensions
         
-        
-# class AMCReader(DataReader):
-#     extensions = ['.bin', '.dat']
-#     ndatasets = None  
-#     fn_out_template = 'EPIC_{:9d}_amc.fits'
-
-#     @classmethod
-#     def read(cls, fname, **kwargs):
-#         epic = int(re.findall('EPIC_([0-9]+)_', basename(fname))[0])
-#         data = np.loadtxt(fname, skiprows=1)
-
-#         return K2Data(epic,
-#                       time     = data[:,0],
-#                       cadence  = data[:,1],
-#                       quality  = data[:,-1],
-#                       fluxes   = data[:,2:-3:2].T,
-#                       errors   = data[:,3:-3:2].T,
-#                       x        = data[:,-3],
-#                       y        = data[:,-2],
-#                       campaign = kwargs.get('campaign', None))
-
-#     @classmethod
-#     def can_read(cls, fname):
-#         ext_ok = cls.is_extension_valid(fname)
-#         with open(fname, 'rt') as f:
-#             header = f.readline().lower().split()
-#             head_ok = all([cn in header for cn in 'dates cadences xpos ypos quality'.split()])
-#         return ext_ok and head_ok
-    
 class MASTReader(DataReader):
     extensions = ['.fits', '.fit']
     ndatasets = 1
@@ -117,13 +88,13 @@ class MASTReader(DataReader):
             sector = kwargs.get('sector', None)
 
         return TESSData(tic,
-                      time    = data['time'][::1],
-                      cadence = data['cadenceno'][::1],
-                      quality = data['quality'][::1],
-                      fluxes  = data[fkey][::1],
-                      errors  = data[fkey+'_err'][::1],
-                      x       = data['pos_corr1'][::1],
-                      y       = data['pos_corr2'][::1],
+                      time    = data['time'].flatten(),
+                      cadence = data['cadenceno'].flatten(),
+                      quality = data['quality'].flatten(),
+                      fluxes  = data[fkey].flatten(),
+                      errors  = data[fkey+'_err'].flatten(),
+                      x       = data['pos_corr1'].flatten(),
+                      y       = data['pos_corr2'].flatten(),
                       primary_header = phead,
                       data_header = dhead,
                       sector = sector,
@@ -138,59 +109,6 @@ class MASTReader(DataReader):
             h = pf.getheader(fname, 1)
             fmt_ok = 'SAP_FLUX' in h.values()
             return fmt_ok
-        
-
-# class SPLOXReader(DataReader):
-#     extensions = ['.fits', '.fit']
-#     ndatasets = 6
-#     fn_out_template = 'STAR_{:09d}.fits'
-#     _cache = None
-#     _nstars = None
-    
-#     @classmethod
-#     def read(cls, fname, sid, **kwargs):
-#         cache = namedtuple('K2Cache', 'fname objno nobj nexp time cadence quality fluxes errors x y header')
-#         if not cls._cache or cls._cache.fname != fname:
-#             with pf.open(fname) as fin:
-#                 data = fin[1].data
-#                 nobj = fin[1].header['naxis2']
-#                 nexp = fin[2].header['naxis2']
-#                 fluxes = (1. + data['f'].reshape([nobj,nexp,-1])) * data['f_med'][:,np.newaxis,:]
-#                 fluxes = np.swapaxes(fluxes, 1, 2) # Fluxes as [nobj,napt,nexp] ndarray
-#                 cls._nstars = nobj         
-#                 cls._cache = cache(fname, fin[1].data['objno'], nobj, nexp, fin[2].data['mjd_obs'],
-#                                    fin[2].data['cadence'], np.zeros(nexp, np.int), fluxes,
-#                                    np.zeros_like(fluxes), data['x'], data['y'], fin[0].header)
-
-#         return K2Data(cls._cache.objno[sid],
-#                       time=cls._cache.time[:-1],
-#                       cadence=cls._cache.cadence[:-1],
-#                       quality=cls._cache.quality[:-1],
-#                       fluxes=cls._cache.fluxes[sid,:,:-1],
-#                       errors=cls._cache.errors[sid,:,:-1],
-#                       x=cls._cache.x[sid,:-1],
-#                       y=cls._cache.y[sid,:-1],
-#                       primary_header=cls._cache.header,
-#                       data_header=cls._cache.header,
-#                       campaign = kwargs.get('campaign', None))    
-
-    
-#     @classmethod
-#     def nstars(cls, fname):
-#         return pf.getval(fname, 'naxis2', 1)
-
-    
-#     @classmethod
-#     def can_read(cls, fname):
-#         ext_ok = cls.is_extension_valid(fname)
-#         if not ext_ok:
-#             return False
-#         else:
-#             h = pf.getheader(fname, 1)
-#             fmt_ok = 'F_SCATTER' in h.values()
-#             return fmt_ok
-
-
 
 ## ===  WRITERS  ===
 ## =================
@@ -209,32 +127,25 @@ class FITSWriter(object):
                 C(name='cadence',  format='J', array=unpack(data.cadence)),
                 C(name='quality',  format='J', array=unpack(data.quality)),
                 C(name='x',        format='D', array=unpack(data.x)),
-                C(name='y',        format='D', array=unpack(data.y))]
-
-        for i in range(data.nsets):
-            sid = '' if data.nsets==1 else '_%d' %(i+1)
-            cols.extend([C(name='flux%s'   %sid, format='D', array=unpack(data.fluxes[i])),
-                         C(name='error%s'  %sid, format='D', array=unpack(data.errors[i])),
-                         C(name='mflags%s' %sid, format='B', array=unpack(data.mflags[i])),
-                         C(name='trtime%s' %sid, format='D', array=unpack(dtres[i].tr_time)),
-                         C(name='trposi%s' %sid, format='D', array=unpack(dtres[i].tr_position))])
-
+                C(name='y',        format='D', array=unpack(data.y)),
+                C(name='flux',     format='D', array=unpack(data.fluxes)),
+                C(name='error',    format='D', array=unpack(data.errors)),
+                C(name='mflags',   format='B', array=unpack(data.mflags)),
+                C(name='trtime',   format='D', array=unpack(dtres.tr_time)),
+                C(name='trposi',   format='D', array=unpack(dtres.tr_position))]
         hdu = pf.BinTableHDU.from_columns(pf.ColDefs(cols), header=data.data_header)
         hdu.header['extname'] = 'TESSK2SC'
         hdu.header['object'] = data.tic
         hdu.header['ticid']   = data.tic
         hdu.header['splits'] = str(splits)
-        for i in range(data.nsets):
-            sid = '' if data.nsets==1 else i+1
-            hdu.header['cdpp%sr'   %sid] = dtres[i].cdpp_r
-            hdu.header['cdpp%st'   %sid] = dtres[i].cdpp_t
-            hdu.header['cdpp%sc'   %sid] = dtres[i].cdpp_c
-            hdu.header['ap%s_warn' %sid] = dtres[i].warn
-        hdu.header['ker_name'] = dtres[0].detrender.kernel.name
-        hdu.header['ker_pars'] = ' '.join(dtres[0].detrender.kernel.names)
-        hdu.header['ker_eqn']  = dtres[0].detrender.kernel.eq
-        for i in range(data.nsets):
-            hdu.header['ker_hps%d'%(i+1)] = str(dtres[i].detrender.tr_pv).replace('\n', '')
+        hdu.header['cdppr'] = dtres.cdpp_r
+        hdu.header['cdppt'] = dtres.cdpp_t
+        hdu.header['cdppc'] = dtres.cdpp_c
+        hdu.header['dt_warn'] = dtres.warn
+        hdu.header['ker_name'] = dtres.detrender.kernel.name
+        hdu.header['ker_pars'] = ' '.join(dtres.detrender.kernel.names)
+        hdu.header['ker_eqn']  = dtres.detrender.kernel.eq
+        hdu.header['ker_hps'] = str(dtres.detrender.tr_pv).replace('\n', '')
 
         for h in (data.primary_header,hdu.header):
             h['origin'] = 'SPLOX: Stars and Planets at Oxford'
@@ -244,7 +155,6 @@ class FITSWriter(object):
         primary_hdu = pf.PrimaryHDU(header=data.primary_header)
         hdu_list = pf.HDUList([primary_hdu, hdu])
         hdu_list.writeto(fname, overwrite=True)
-
 
 readers = [MASTReader]
 

@@ -99,6 +99,7 @@ class DtData(object):
     def flux_std(self):
         return self._fs
 
+    
     @property
     def mask(self):
         return self._mask

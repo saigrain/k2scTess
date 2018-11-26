@@ -16,13 +16,12 @@ from .core import *
 class TESSData(object):
     """Encapsulates the TESS data.
 
-    Encapsulates the TESS data with 1..n flux and flux uncertainty arrays. Separate
-    flux and uncertainty arrays can correspond to different aperture sizes, etc.
-
     Notes
     -----
-    We remove the cadences where either time, x, or y is nan since input nans screw 
-    up the GP fitting and reduction. This must be accounted for when saving the data.
+
+    We remove the cadences where either time, x, or y is nan since input
+    nans screw up the GP fitting and reduction. This must be accounted
+    for when saving the data.
 
     Parameters
     ----------
@@ -35,20 +34,18 @@ class TESSData(object):
     quality : array_like
               ndarray or list containing the quality values
     fluxes  : array_like
-              a list, multiple lists, or [nsets,npoints] ndarray of flux values
+              ndarray or list containing the flux values
     errors  : array_like
-              a list, multiple lists, or [nsets,npoints] ndarray of flux values
+              ndarray or list containing the flux uncertainties
     x       : array_like
-              ndarray or list of x values
+              ndarray or list containing the x positions
     y       : array_like
-              ndarray or list of y values
+              ndarray or list containing the y positions
     ftype   : string
-             'sap' or 'pdc'
+              'sap' or 'pdc'
 
     Attributes
     ----------
-    nsets       : int
-                  Number of datasets
     npoints     : int
                   Number of datapoints
     is_periodic : bool
@@ -56,43 +53,38 @@ class TESSData(object):
     ls_period   : float
                   Period of the strongest periodic variability detected
     ls_power    : float
-                  Lomb-Scargle power of the strongest periodic variability detected
+                  Lomb-Scargle power of the strongest periodic variability 
+                  detected
     """
     
-    def __init__(self, tic, time, cadence, quality, fluxes, errors, x, y, primary_header=None, data_header=None, sector=None, ftype='pdc'):
+    def __init__(self, tic, time, cadence, quality, fluxes, errors, x, y, \
+                     primary_header=None, data_header=None, sector=None, \
+                     ftype='pdc'):
         self.tic = tic
         self.sector = sector
         self.nanmask = nm = isfinite(time) & isfinite(x) & isfinite(y)
         self.time = extract(nm, time)
         self.cadence =  extract(nm, cadence)
         self.quality =  extract(nm, quality).astype(np.int32)
-        self.fluxes = atleast_2d(fluxes)[:,nm]
-        self.errors = atleast_2d(errors)[:,nm]
+        self.fluxes =  extract(nm, fluxes)
+        self.errors = extract(nm, errors)
         self.x = extract(nm,x)
         self.y = extract(nm,y)
         self.ftype = ftype
         self.primary_header = primary_header
         self.data_header = data_header
 
-        self.nsets   = self.fluxes.shape[0]
-        self.npoints = self.fluxes.shape[1]
+        self.npoints = self.fluxes.shape
 
         self.is_periodic = False
         self.ls_period = None
         self.ls_power = None
 
         qmask = all(isfinite(self.fluxes),0) & (self.quality==0)
-        self.mflags   = zeros([self.nsets, self.npoints], np.uint8)
-        self.mflags[:,~qmask] |= M_QUALITY
+        self.mflags   = zeros(self.npoints, np.uint8)
+        self.mflags[~qmask] |= M_QUALITY
 
     def mask_periodic_signal(self, center, period, duration):
         self.pmask = np.abs(fold(self.time, period, center, shift=0.5) - 0.5)*period > 0.5*duration
-        self.mflags[:,~self.pmask] |= M_PERIODIC
-
-    def use_subset(self, skip):
-        self.smask = np.zeros(len(self.time), 'bool')
-        self.smask[::skip] = True
-        self.mflags[:,~self.smask] |= M_NOTUSED
-
-    #def __str__(self):
-    #    return str(id(self))
+        self.mflags[~self.pmask] |= M_PERIODIC
+        

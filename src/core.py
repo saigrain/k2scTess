@@ -5,4 +5,9 @@ M_OUTLIER_U  = 2**3
 M_OUTLIER_D  = 2**4
 M_NOTFINITE  = 2**5
 M_PERIODIC   = 2**6
-M_NOTUSED    = 2**7
+M_TRAINING   = 2**7
+
+NMAX = 4000
+
+default_splits = {14:[1626.8,1640.8]}
+# ETE-6 = sector 14

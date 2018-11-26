@@ -18,15 +18,32 @@ from .gp import GeorgeGP, SplitGP
 from .kernels import BasicKernel
 from .utils import medsig
 from .dtdata import DtData
+from .core import NMAX
 
 
 class Detrender(object):
     def __init__(self, flux, inputs, mask=None, p0=None, kernel=None, splits=[], tr_nrandom=200, tr_bspan=50, tr_nblocks=6):
         self.data   = DtData(flux, inputs, mask)
-        self.kernel = kernel or BasicKernel()
-        self.gp     = SplitGP(self.kernel, splits) if splits is not None else GeorgeGP(self.kernel)
+        self.splits = splits
+        self.kernel = kernel or BasicKernel(p0)
         self.tr_data  = self.data.create_training_set(tr_nrandom, tr_bspan, tr_nblocks)
+        self.init_gp()
+
+    def update_kernel(self, kernel):
+        self.kernel = kernel
+        self.init_gp()
+
+    def update_data(self, flux, inputs, mask=None, update_tr = False, \
+                        tr_nrandom=200, tr_bspan=50, tr_nblocks=6):
+        self.data   = DtData(flux, inputs, mask)
+        if update_tr:
+            self.tr_data  = self.data.create_training_set(tr_nrandom, tr_bspan, tr_nblocks)
+            self.init_gp()
+
+    def init_gp(self):
+        self.gp     = SplitGP(self.kernel, self.splits) if self.splits is not None else GeorgeGP(self.kernel)
         self.gp.set_inputs(self.tr_data.masked_inputs)
+
 
     ## ======================
     ##  Convenience routines
@@ -39,8 +56,6 @@ class Detrender(object):
     @property
     def time(self):
         return self.data.masked_time
-
-
     
     ## =====================
     ##  Detrending routines
@@ -62,7 +77,7 @@ class Detrender(object):
         except LinAlgError:
             return inf
 
-
+        
     def train(self, pv0=None, disp=False):
         pv0 = pv0 if pv0 is not None else self.kernel.pv0
         mres = minimize(self.neglnposterior, pv0, method='Powell')
@@ -71,17 +86,53 @@ class Detrender(object):
 
     
     def predict(self, pv, inputs=None, components=False, mean_only=True):
-        inputs  = inputs if inputs is not None else self.data.unmasked_inputs
-        self.gp.compute(self.data.masked_inputs, pv)
-        self.gp._compute_alpha(self.data.masked_normalised_flux)
-
-        if components:
-            mu_time, mu_pos = self.gp.predict_components(inputs)
-            return ((1. + mu_time) * self.data._fm,
-                    (1. + mu_pos)  * self.data._fm)
+        Nt = len(self.data.masked_inputs)
+        if Nt < NMAX:
+            self.gp.compute(self.data.masked_inputs, pv)
+            self.gp._compute_alpha(self.data.masked_normalised_flux)
         else:
-            return self.gp.predict(inputs, mean_only=mean_only)
-    
+            Nt = len(self.tr_data.masked_inputs)
+            self.gp.compute(self.tr_data.masked_inputs, pv)
+            self.gp._compute_alpha(self.tr_data.masked_normalised_flux)
+        inputs  = inputs if inputs is not None else self.data.unmasked_inputs
+        Np = len(inputs)
+        if Np <= NMAX: # OK to do it in one go
+            if components:
+                mu_time, mu_pos = self.gp.predict_components(inputs)
+                return ((1. + mu_time) * self.data._fm,
+                        (1. + mu_pos)  * self.data._fm)
+            else:
+                return (1 + self.gp.predict(inputs, mean_only=mean_only)) * self.data._fm
+        else:
+            # Break it up into chunks so it's not too slow
+            nchunks = 1
+            lchunk = int(np.ceil(Np/float(nchunks)))
+            while lchunk > NMAX:
+                nchunks += 1
+                lchunk = int(np.ceil(Np/float(nchunks)))
+            if components:
+                mu_time = np.zeros(Np)
+                mu_pos = np.zeros(Np)
+            else:
+                mu = np.zeros(Np)
+            istart = 0
+            iend = istart + lchunk
+            ichunk = 1
+            while(istart < Np):
+                if components:
+                    mt, mp = self.gp.predict_components(inputs[istart:iend,:])
+                    mu_time[istart:iend] = (1. + mt) * self.data._fm
+                    mu_pos[istart:iend] = (1. + mp) * self.data._fm
+                else:
+                    mu[istart:iend] = (1 + self.gp.predict(inputs[istart:iend], \
+                                                          mean_only=mean_only)) * self.data._fm
+                istart += lchunk
+                iend = istart + lchunk
+                ichunk += 1
+            if components:
+                return mu_time, mu_pos
+            else:
+                return mu
 
     def detrend_spatial(self, pv):
         mt, mp = self.compute_components(pv)
@@ -90,7 +141,6 @@ class Detrender(object):
         flux[~self.data.mask] = nan
         return flux
     
-
     ## ===================
     ##  Plotting routines
     ## ===================
