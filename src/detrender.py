@@ -26,7 +26,7 @@ class Detrender(object):
         self.data   = DtData(flux, inputs, mask)
         self.splits = splits
         self.kernel = kernel or BasicKernel(p0)
-        self.tr_data  = self.data.create_training_set(tr_nrandom, tr_bspan, tr_nblocks)
+        self.tr_data  = self.data.create_training_set(tr_nrandom, tr_nblocks, tr_bspan)
         self.init_gp()
 
     def update_kernel(self, kernel):
@@ -37,7 +37,7 @@ class Detrender(object):
                         tr_nrandom=200, tr_bspan=50, tr_nblocks=6):
         self.data   = DtData(flux, inputs, mask)
         if update_tr:
-            self.tr_data  = self.data.create_training_set(tr_nrandom, tr_bspan, tr_nblocks)
+            self.tr_data  = self.data.create_training_set(tr_nrandom, tr_nblocks, tr_bspan)
             self.init_gp()
 
     def init_gp(self):
@@ -119,19 +119,23 @@ class Detrender(object):
             iend = istart + lchunk
             ichunk = 1
             while(istart < Np):
+                print(istart, iend)
                 if components:
                     mt, mp = self.gp.predict_components(inputs[istart:iend,:])
-                    mu_time[istart:iend] = (1. + mt) * self.data._fm
-                    mu_pos[istart:iend] = (1. + mp) * self.data._fm
+                    mu_time[istart:iend] = mt
+                    mu_pos[istart:iend] = mp
                 else:
-                    mu[istart:iend] = (1 + self.gp.predict(inputs[istart:iend], \
-                                                          mean_only=mean_only)) * self.data._fm
+                    mu[istart:iend] = self.gp.predict(inputs[istart:iend], \
+                                                          mean_only=mean_only)
                 istart += lchunk
                 iend = istart + lchunk
                 ichunk += 1
             if components:
+                mu_time = (1 + mu_time) * self.data._fm
+                mu_pos = (1 + mu_pos) * self.data._fm
                 return mu_time, mu_pos
             else:
+                mu = (1 + mu) * self.data._fm
                 return mu
 
     def detrend_spatial(self, pv):

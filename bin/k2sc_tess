@@ -343,7 +343,7 @@ if __name__ == '__main__':
     ap.add_argument('--p-mask-duration', type=float, default=None, help='Period mask event duration')
     gts.add_argument('--tr-nrandom', default=400, type=int, help='Number of random samples')
     gts.add_argument('--tr-nblocks', default=6, type=int, help='Number of sample blocks')
-    gts.add_argument('--tr-bspan', default=50, type=int, help='Span of a single block')
+    gts.add_argument('--tr-bspan', default=250, type=int, help='Span of a single block')
     gde.add_argument('--de-npop', default=100, type=int, help='Size of the differential evolution parameter vector population')
     gde.add_argument('--de-niter', default=150, type=int, help='Number of differential evolution iterations')
     gde.add_argument('--de-max-time', default=300, type=float, help='Maximum time used for differential evolution')

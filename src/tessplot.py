@@ -39,13 +39,6 @@ def plot_lc(data, zoom  = False):
     xpos = data['x']
     ypos = data['y']
 
-    pl.plot(time, fraw)
-    pl.plot(time, ctim)
-    pl.plot(time, cpos)
-    pl.plot(time, cpos+ctim-np.nanmedian(ctim))
-    pl.savefig('test3.png')
-    pl.clf()
-    
     m = np.nanmedian(fraw[lcond])
     ctot = cpos + ctim - m
     fcorr1 = fraw - cpos + m
@@ -62,20 +55,23 @@ def plot_lc(data, zoom  = False):
     ax3 = pl.subplot(gs[3,:], sharex = ax1)
     ax4 = pl.subplot(gs[4,:], sharex = ax1, sharey = ax3)
     ax5 = pl.subplot(gs[5,:], sharex = ax1, sharey = ax3)
-    ax6 = pl.subplot(gs[6,:], sharex = ax1)
+    ax6 = pl.subplot(gs[6,:], sharex = ax1, sharey = ax3)
     
     ax1.plot(time[mask], xpos[mask], 'k.', ms = 3, alpha = 0.3, \
                  label = 'normal data')
     ax2.plot(time[mask], ypos[mask], 'k.', ms = 3, alpha = 0.3)
     ax3.plot(time[mask], fraw[mask], 'k.', ms = 3, alpha = 0.3, \
                  label = 'raw flux')
-    ax3.plot(time[mask], ctot[mask], 'C0-', lw = 0.5, label = 'full GP')
+    ax3.plot(time[mask], ctot[mask], 'C0-', lw = 2, alpha = 0.5, \
+                 label = 'full GP')
     ax4.plot(time[mask], fcorr1[mask], 'k.', ms = 3, alpha = 0.3, \
                  label = 'xy-corrected')
-    ax4.plot(time[mask], ctim[mask], 'C0-', lw = 0.5, label = 'time GP')
+    ax4.plot(time[mask], ctim[mask], 'C0-', lw = 2, alpha = 0.5, \
+                 label = 'time GP')
     ax5.plot(time[mask], fcorr2[mask], 'k.', ms = 3, alpha = 0.3, \
                  label = 'time-corrected')
-    ax5.plot(time[mask], cpos[mask], 'C0-', lw = 0.5, label = 'xy GP')
+    ax5.plot(time[mask], cpos[mask], 'C0-', lw = 2, alpha = 0.5, \
+                 label = 'xy GP')
     ax6.plot(time[mask], fcorr[mask], 'k.', ms = 3, alpha = 0.3, \
                  label = 'fully corrected')
 
@@ -148,12 +144,12 @@ def plot_lc(data, zoom  = False):
         ymax = max(med + 5 * sig, yma + 0.1 * yr)
         ymin = min(med - 5 * sig, ymi - 0.1 * yr)
         pl.setp(ax3, ylim = (ymin, ymax))
-        med, sig = medsig(fcorr[mask])
-        ymi, yma = fcorr[lcond].min(), fcorr[lcond].max()
-        yr = yma-ymi
-        ymax = max(med + 5 * sig, yma + 0.1 * yr)
-        ymin = min(med - 5 * sig, ymi - 0.1 * yr)
-        pl.setp(ax6, ylim = (ymin, ymax))
+        # med, sig = medsig(fcorr[mask])
+        # ymi, yma = fcorr[lcond].min(), fcorr[lcond].max()
+        # yr = yma-ymi
+        # ymax = max(med + 5 * sig, yma + 0.1 * yr)
+        # ymin = min(med - 5 * sig, ymi - 0.1 * yr)
+        # pl.setp(ax6, ylim = (ymin, ymax))
         
     
     return ax0

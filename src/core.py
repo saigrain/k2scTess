@@ -9,5 +9,6 @@ M_TRAINING   = 2**7
 
 NMAX = 4000
 
-default_splits = {14:[1626.8,1640.8]}
+# default_splits = {14:[1626.8,1640.8]}
+default_splits = {14:[]}
 # ETE-6 = sector 14
