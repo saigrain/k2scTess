@@ -196,8 +196,8 @@ def detrend(dataset):
             exit(1)
         kernel = kernels[args.kernel](period=args.kernel_period)
     else:
-        info('  Using %s position kernel', args.default_position_kernel)
         if ds.is_periodic:
+            info('  Using %s position kernel', args.default_position_kernel)
             info('  Found periodicity p = {:7.2f} (fap {:7.4e} < 1e-50), will use a quasiperiodic kernel'.format(ds.ls_period, ds.ls_fap))
         else:
             info('  No strong periodicity found, using a basic kernel')
@@ -208,6 +208,8 @@ def detrend(dataset):
             kernel = QuasiPeriodicKernelEP(period=ds.ls_period) if ds.is_periodic else BasicKernelEP()
     # update kernel in detrender
     detrender.update_kernel(kernel)
+    info('Using %s kernel: %s' % (kernel.name, kernel.eq))
+    info('  Kernel parameters: %s' % ', '.join(kernel.names)) 
 
     ## Global hyperparameter optimisation
     ## ----------------------------------
@@ -270,18 +272,21 @@ def detrend(dataset):
 
         ## Final detrending and CDPP computation
         ## -------------------------------------
+        info('Computing CDPP for raw data with outliers included')
+        dd = detrender.data
+        cdpp_r = cdpp(dd.masked_time, dd.masked_flux)
         info('Computing final time and position trends')
-        # update mask in detrender        
+        # update mask in detrender to exclude outliers from conditioning set
         mask  = isfinite(flux) 
         mask &= ~(ds.quality & 2**20).astype(np.bool)
         mask &= ~(ds.mflags & M_PERIODIC).astype(np.bool)
-        mask &= ~(mhigh & mlow)
+        mask &= ~(~mhigh).astype(np.bool)
+        mask &= ~(~mlow).astype(np.bool)
         detrender.update_data(flux, inputs, mask = mask, update_tr = False)
         (mt,tt),(mp,tp) = map(lambda a: (nanmedian(a), a-nanmedian(a)), \
-                                detrender.predict(pv, components=True))
-        info('Computing CDPP')
+                                detrender.predict(pv, components=True))         
+        info('Computing CDPP for corrected data w/o outliers')
         dd = detrender.data
-        cdpp_r = cdpp(dd.masked_time, dd.masked_flux)
         cdpp_t = cdpp(dd.unmasked_time, dd.unmasked_flux-tp, exclude=~dd.mask)
         cdpp_c = cdpp(dd.unmasked_time, dd.unmasked_flux-tp-tt, \
                           exclude=~dd.mask)

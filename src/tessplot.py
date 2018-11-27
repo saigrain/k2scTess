@@ -11,7 +11,6 @@ from os.path import join, basename, split, splitext
 from numpy.random import uniform
 from IPython.display import display
 from matplotlib.backends.backend_pdf import PdfPages
-
 from .core import *
 from .utils import medsig
 
@@ -27,17 +26,11 @@ def normalise(a):
 
 def plot_lc(data, zoom  = False):
     flags = data['mflags']
-    print('Light curve contains {:d} points'.format(len(flags)))
-    lqual = flags & M_QUALITY
-    print('{:d} points have bad quality flag'.format(lqual.sum()))
-    lperm = flags & M_PERIODIC
-    print('{:d} points were excluded due to periodic mask'.format(lperm.sum()))
+    lqual = flags == M_QUALITY
+    lperm = flags == M_PERIODIC
     loutl = (flags == M_OUTLIER_U) | (flags == M_OUTLIER_D)
-    print('{:d} points were marked as outliers'.format(loutl.sum()))
-    lcond = flags & M_TRAINING
-    print('{:d} points were used for training/conditioning'.format(lcond.sum()))
+    lcond = flags == M_TRAINING
     mask = ~(lcond | lqual | loutl | lperm)
-    print('{:d} points were none of the above'.format(mask.sum()))
 
     time = data['time']
     fraw = data['flux']
@@ -45,6 +38,13 @@ def plot_lc(data, zoom  = False):
     cpos = data['trposi']
     xpos = data['x']
     ypos = data['y']
+
+    pl.plot(time, fraw)
+    pl.plot(time, ctim)
+    pl.plot(time, cpos)
+    pl.plot(time, cpos+ctim-np.nanmedian(ctim))
+    pl.savefig('test3.png')
+    pl.clf()
     
     m = np.nanmedian(fraw[lcond])
     ctot = cpos + ctim - m
@@ -69,13 +69,13 @@ def plot_lc(data, zoom  = False):
     ax2.plot(time[mask], ypos[mask], 'k.', ms = 3, alpha = 0.3)
     ax3.plot(time[mask], fraw[mask], 'k.', ms = 3, alpha = 0.3, \
                  label = 'raw flux')
-    ax3.plot(time[mask], ctot[mask], 'C2-', lw = 0.5, label = 'full GP')
+    ax3.plot(time[mask], ctot[mask], 'C0-', lw = 0.5, label = 'full GP')
     ax4.plot(time[mask], fcorr1[mask], 'k.', ms = 3, alpha = 0.3, \
                  label = 'xy-corrected')
-    ax4.plot(time[mask], ctim[mask], 'C2-', lw = 0.5, label = 'time GP')
+    ax4.plot(time[mask], ctim[mask], 'C0-', lw = 0.5, label = 'time GP')
     ax5.plot(time[mask], fcorr2[mask], 'k.', ms = 3, alpha = 0.3, \
                  label = 'time-corrected')
-    ax5.plot(time[mask], cpos[mask], 'C2-', lw = 0.5, label = 'xy GP')
+    ax5.plot(time[mask], cpos[mask], 'C0-', lw = 0.5, label = 'xy GP')
     ax6.plot(time[mask], fcorr[mask], 'k.', ms = 3, alpha = 0.3, \
                  label = 'fully corrected')
 
@@ -88,21 +88,29 @@ def plot_lc(data, zoom  = False):
         ax5.plot(time[mask], fcorr2[mask], 'C0.', ms = 5, alpha = 0.7)
         ax6.plot(time[mask], fcorr[mask], 'C0.', ms = 5, alpha = 0.7)
         
-    ax1.plot(time[lqual], xpos[lqual], 'C1.', ms = 5, alpha = 0.7, \
+    ax1.plot(time[lqual], xpos[lqual], 'C1.', ms = 5, alpha = 0.7)
+    ax2.plot(time[lqual], ypos[lqual], 'C1.', ms = 5, alpha = 0.7, \
                  label = 'bad quality flag')
-    ax2.plot(time[lqual], ypos[lqual], 'C1.', ms = 5, alpha = 0.7)
     ax3.plot(time[lqual], fraw[lqual], 'C1.', ms = 5, alpha = 0.7)
     ax4.plot(time[lqual], fcorr1[lqual], 'C1.', ms = 5, alpha = 0.7)
     ax5.plot(time[lqual], fcorr2[lqual], 'C1.', ms = 5, alpha = 0.7)
     ax6.plot(time[lqual], fcorr[lqual], 'C1.', ms = 5, alpha = 0.7)
 
-    ax1.plot(time[lcond], xpos[lcond], 'C2.', ms = 5, alpha = 0.7, \
-                 label = 'training set')                 
-    ax2.plot(time[lcond], ypos[lcond], 'C2.', ms = 5, alpha = 0.7)          
+    ax1.plot(time[lcond], xpos[lcond], 'C2.', ms = 5, alpha = 0.7)              
+    ax2.plot(time[lcond], ypos[lcond], 'C2.', ms = 5, alpha = 0.7, \
+                 label = 'training set')          
     ax3.plot(time[lcond], fraw[lcond], 'C2.', ms = 5, alpha = 0.7)
     ax4.plot(time[lcond], fcorr1[lcond], 'C2.', ms = 5, alpha = 0.7)
     ax5.plot(time[lcond], fcorr2[lcond], 'C2.', ms = 5, alpha = 0.7)
     ax6.plot(time[lcond], fcorr[lcond], 'C2.', ms = 5, alpha = 0.7)
+
+    ax1.plot(time[loutl], xpos[loutl], 'C3.', ms = 5, alpha = 0.7)
+    ax2.plot(time[loutl], ypos[loutl], 'C3.', ms = 5, alpha = 0.7, \
+                 label = 'outlier')
+    ax3.plot(time[loutl], fraw[loutl], 'C3.', ms = 5, alpha = 0.7)
+    ax4.plot(time[loutl], fcorr1[loutl], 'C3.', ms = 5, alpha = 0.7)
+    ax5.plot(time[loutl], fcorr2[loutl], 'C3.', ms = 5, alpha = 0.7)
+    ax6.plot(time[loutl], fcorr[loutl], 'C3.', ms = 5, alpha = 0.7)
 
     pl.setp(ax1, ylabel='x (pix)')
     pl.setp(ax2, ylabel='y (pix)')
@@ -113,6 +121,7 @@ def plot_lc(data, zoom  = False):
     pl.setp(ax6, xlabel='time (d)')
 
     ax1.legend(loc = 0)
+    ax2.legend(loc = 0)
     ax3.legend(loc = 0)
     ax4.legend(loc = 0)
     ax5.legend(loc = 0)
@@ -159,7 +168,7 @@ def make_plot(fname):
     pl.figure(figsize=(8.3,8.3))
     ax0 = plot_lc(data)
     ax0.text(0.01,0.80, 'TIC {:d}'.format(tic), size = 13, weight = 'bold')
-    ax0.text(0.01,0.50, 'CDPP (ppm): raw {:4.0f}, xy-corr {:4.0f}, detrended {:4.0f}'.format(hd['cdppr'], hd['cdppt'],hd['cdppc']), size=11)
+    ax0.text(0.01,0.50, 'CDPP (ppm, w/o outliers): raw {:4.0f}, xy-corr {:4.0f}, detrended {:4.0f}'.format(hd['cdppr'], hd['cdppt'],hd['cdppc']), size=11)
     if hd['ker_name'] == 'QuasiPeriodicKernel':
         pars = np.fromstring(hd.get('ker_hps').strip('[]'), sep=' ')
         ax0.text(0.01,0.20, '{:s} (P={:.1f} days)'.format(hd['ker_name'], pars[2]), size=11)
