@@ -119,7 +119,6 @@ class Detrender(object):
             iend = istart + lchunk
             ichunk = 1
             while(istart < Np):
-                print(istart, iend)
                 if components:
                     mt, mp = self.gp.predict_components(inputs[istart:iend,:])
                     mu_time[istart:iend] = mt
