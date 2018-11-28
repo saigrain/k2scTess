@@ -12,7 +12,7 @@ from glob import glob
 try:
     from mpi4py import MPI
     comm = MPI.COMM_WORLD
-    mpi_rank = comm.Get_ran()
+    mpi_rank = comm.Get_rank()
     mpi_size = comm.Get_size()
     with_mpi = True
 except ImportError:
